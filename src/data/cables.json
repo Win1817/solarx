@@ -1,0 +1,14 @@
+[
+  { "awg": "18", "mm2": 0.75, "ampacity12v": 7, "ampacity24v": 7, "ampacity48v": 7, "resistance": 20.95 },
+  { "awg": "16", "mm2": 1.5, "ampacity12v": 10, "ampacity24v": 10, "ampacity48v": 10, "resistance": 13.17 },
+  { "awg": "14", "mm2": 2.5, "ampacity12v": 15, "ampacity24v": 15, "ampacity48v": 15, "resistance": 8.286 },
+  { "awg": "12", "mm2": 4.0, "ampacity12v": 20, "ampacity24v": 20, "ampacity48v": 20, "resistance": 5.211 },
+  { "awg": "10", "mm2": 6.0, "ampacity12v": 30, "ampacity24v": 30, "ampacity48v": 30, "resistance": 3.277 },
+  { "awg": "8", "mm2": 10.0, "ampacity12v": 40, "ampacity24v": 40, "ampacity48v": 40, "resistance": 2.061 },
+  { "awg": "6", "mm2": 16.0, "ampacity12v": 55, "ampacity24v": 55, "ampacity48v": 55, "resistance": 1.296 },
+  { "awg": "4", "mm2": 25.0, "ampacity12v": 70, "ampacity24v": 70, "ampacity48v": 70, "resistance": 0.8152 },
+  { "awg": "2", "mm2": 35.0, "ampacity12v": 95, "ampacity24v": 95, "ampacity48v": 95, "resistance": 0.5127 },
+  { "awg": "1/0", "mm2": 50.0, "ampacity12v": 125, "ampacity24v": 125, "ampacity48v": 125, "resistance": 0.3224 },
+  { "awg": "2/0", "mm2": 70.0, "ampacity12v": 145, "ampacity24v": 145, "ampacity48v": 145, "resistance": 0.2557 },
+  { "awg": "4/0", "mm2": 120.0, "ampacity12v": 195, "ampacity24v": 195, "ampacity48v": 195, "resistance": 0.1608 }
+]

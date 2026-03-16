@@ -1,0 +1,46 @@
+[
+  {
+    "id": "lifepo4",
+    "name": "LiFePO4 (Lithium Iron Phosphate)",
+    "nominalVoltage": 12.8,
+    "maxDoD": 0.8,
+    "efficiency": 0.97,
+    "cycleLife": 3000,
+    "selfDischargePerMonth": 0.03,
+    "tempCoefficient": -0.003,
+    "notes": "Best overall. Long life, safe, lightweight. Recommended for new installs."
+  },
+  {
+    "id": "agm",
+    "name": "AGM (Absorbent Glass Mat)",
+    "nominalVoltage": 12,
+    "maxDoD": 0.5,
+    "efficiency": 0.92,
+    "cycleLife": 500,
+    "selfDischargePerMonth": 0.03,
+    "tempCoefficient": -0.005,
+    "notes": "Maintenance-free sealed lead acid. Good for budget builds."
+  },
+  {
+    "id": "gel",
+    "name": "Gel Battery",
+    "nominalVoltage": 12,
+    "maxDoD": 0.5,
+    "efficiency": 0.90,
+    "cycleLife": 600,
+    "selfDischargePerMonth": 0.03,
+    "tempCoefficient": -0.005,
+    "notes": "Sealed gel electrolyte. Tolerates heat better than AGM."
+  },
+  {
+    "id": "flooded",
+    "name": "Flooded Lead Acid (FLA)",
+    "nominalVoltage": 12,
+    "maxDoD": 0.5,
+    "efficiency": 0.85,
+    "cycleLife": 400,
+    "selfDischargePerMonth": 0.05,
+    "tempCoefficient": -0.006,
+    "notes": "Lowest cost. Requires maintenance (watering). Ventilation required."
+  }
+]

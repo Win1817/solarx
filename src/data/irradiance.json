@@ -1,0 +1,20 @@
+[
+  { "id": "ph-cebu", "name": "Cebu, Philippines", "peakSunHours": 5.2, "region": "PH" },
+  { "id": "ph-manila", "name": "Manila, Philippines", "peakSunHours": 4.9, "region": "PH" },
+  { "id": "ph-davao", "name": "Davao, Philippines", "peakSunHours": 5.4, "region": "PH" },
+  { "id": "ph-iloilo", "name": "Iloilo, Philippines", "peakSunHours": 5.1, "region": "PH" },
+  { "id": "ph-cagayan", "name": "Cagayan de Oro, Philippines", "peakSunHours": 5.3, "region": "PH" },
+  { "id": "ph-zamboanga", "name": "Zamboanga, Philippines", "peakSunHours": 5.5, "region": "PH" },
+  { "id": "ph-palawan", "name": "Palawan, Philippines", "peakSunHours": 5.6, "region": "PH" },
+  { "id": "ph-baguio", "name": "Baguio, Philippines", "peakSunHours": 4.5, "region": "PH" },
+  { "id": "sg-singapore", "name": "Singapore", "peakSunHours": 4.5, "region": "SEA" },
+  { "id": "id-jakarta", "name": "Jakarta, Indonesia", "peakSunHours": 5.0, "region": "SEA" },
+  { "id": "my-kuala", "name": "Kuala Lumpur, Malaysia", "peakSunHours": 4.7, "region": "SEA" },
+  { "id": "th-bangkok", "name": "Bangkok, Thailand", "peakSunHours": 5.0, "region": "SEA" },
+  { "id": "au-sydney", "name": "Sydney, Australia", "peakSunHours": 5.1, "region": "Global" },
+  { "id": "us-la", "name": "Los Angeles, USA", "peakSunHours": 5.6, "region": "Global" },
+  { "id": "us-ny", "name": "New York, USA", "peakSunHours": 4.2, "region": "Global" },
+  { "id": "de-berlin", "name": "Berlin, Germany", "peakSunHours": 3.1, "region": "Global" },
+  { "id": "ae-dubai", "name": "Dubai, UAE", "peakSunHours": 6.1, "region": "Global" },
+  { "id": "za-cape", "name": "Cape Town, South Africa", "peakSunHours": 5.8, "region": "Global" }
+]
