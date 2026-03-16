@@ -72,9 +72,9 @@ export function generateStandardSegments(
   // const batteryCurrent = batteryAh * 0.2; // C/5 rate
 
   return [
-    { id: 'pv-mppt', name: 'PV Array → MPPT', currentAmps: solarCurrent, lengthMeters: 10, systemVoltage, maxVoltageDrop: 0.02 },
-    { id: 'mppt-battery', name: 'MPPT → Battery', currentAmps: solarCurrent, lengthMeters: 3, systemVoltage, maxVoltageDrop: 0.01 },
-    { id: 'battery-inverter', name: 'Battery → Inverter', currentAmps: inverterCurrent, lengthMeters: 2, systemVoltage, maxVoltageDrop: 0.01 },
-    { id: 'inverter-load', name: 'Inverter → Load Panel', currentAmps: peakLoadWatts / 220, lengthMeters: 5, systemVoltage: 220, maxVoltageDrop: 0.03 },
+    { id: 'pv-mppt', name: 'PV Array to MPPT', currentAmps: solarCurrent, lengthMeters: 10, systemVoltage, maxVoltageDrop: 0.02 },
+    { id: 'mppt-battery', name: 'MPPT to Battery', currentAmps: solarCurrent, lengthMeters: 3, systemVoltage, maxVoltageDrop: 0.01 },
+    { id: 'battery-inverter', name: 'Battery to Inverter', currentAmps: inverterCurrent, lengthMeters: 2, systemVoltage, maxVoltageDrop: 0.01 },
+    { id: 'inverter-load', name: 'Inverter to Load Panel', currentAmps: peakLoadWatts / 220, lengthMeters: 5, systemVoltage: 220, maxVoltageDrop: 0.03 },
   ];
 }
