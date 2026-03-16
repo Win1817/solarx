@@ -1,6 +1,6 @@
 import { useSolarStore } from '../store/solarStore';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
-import { exportToPDF } from '../utils/exportPDF';
+import { exportPDF } from '../utils/exportPDF';
 import irradianceData from '../data/irradiance.json';
 import batteriesData from '../data/batteries.json';
 
@@ -25,10 +25,7 @@ export default function Results() {
   const paybackYear = roi.yearlyProjection.find(y => y.netPosition >= 0)?.year ?? null;
 
   const handleExport = () => {
-    exportToPDF(project, load, panels, batteries, inverter, wiring, roi,
-      location?.name ?? project.locationId,
-      chemistry?.name ?? project.batteryChemistryId
-    );
+    exportPDF(project, results);
   };
 
   return (

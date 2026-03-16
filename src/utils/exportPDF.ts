@@ -1,99 +1,459 @@
 import jsPDF from 'jspdf';
-import type { LoadResult } from '../engines/loadCalculator';
-import type { PanelSizingResult } from '../engines/panelSizing';
-import type { BatterySizingResult } from '../engines/batterySizing';
-import type { InverterSizingResult } from '../engines/inverterSizing';
-import type { WireSizingResult } from '../engines/wireSizing';
-import type { RoiResult } from '../engines/roiCalculator';
-import type { ProjectConfig } from '../store/solarStore';
+import type { SolarResults, ProjectConfig } from '../store/solarStore';
 import irradianceData from '../data/irradiance.json';
+import batteriesData from '../data/batteries.json';
 
-const SUN='#F5A623',DARK='#0d0f12',BG2='#13171d',BG3='#161a23';
-const TEXT='#e8ecf4',TEXT2='#8a96b0',TEXT3='#4a5470';
-const GREEN='#22c55e',BORDER='#2a3040';
-function rgb(h:string):[number,number,number]{return[parseInt(h.slice(1,3),16),parseInt(h.slice(3,5),16),parseInt(h.slice(5,7),16)];}
+// ── Color palette (print-safe) ──────────────────────────────
+const C = {
+  black:   [15,  17,  22 ] as [number,number,number],
+  dark:    [30,  35,  45 ] as [number,number,number],
+  mid:     [80,  90,  110] as [number,number,number],
+  muted:   [140, 150, 165] as [number,number,number],
+  light:   [220, 225, 235] as [number,number,number],
+  white:   [255, 255, 255] as [number,number,number],
+  sun:     [220, 140,  20] as [number,number,number],  // amber — readable on white
+  sunBg:   [255, 248, 230] as [number,number,number],
+  green:   [22,  130,  80] as [number,number,number],
+  greenBg: [230, 248, 238] as [number,number,number],
+  blue:    [30,  100, 200] as [number,number,number],
+  blueBg:  [230, 240, 255] as [number,number,number],
+  red:     [180,  40,  40] as [number,number,number],
+  redBg:   [255, 235, 235] as [number,number,number],
+  border:  [210, 215, 225] as [number,number,number],
+  rowAlt:  [248, 249, 252] as [number,number,number],
+  headerBg:[30,  40,  60 ] as [number,number,number],
+};
 
-export function exportToPDF(project:ProjectConfig,load:LoadResult,panels:PanelSizingResult,batteries:BatterySizingResult,inverter:InverterSizingResult,wiring:WireSizingResult,roi:RoiResult,locationName:string,chemistryName:string){
-  const doc=new jsPDF({orientation:'portrait',unit:'mm',format:'a4'});
-  const pw=210,lm=15,rm=15,cw=pw-lm-rm;
-  let y=0;
-  const sf=(h:string)=>doc.setFillColor(...rgb(h));
-  const ss=(h:string)=>doc.setDrawColor(...rgb(h));
-  const st=(h:string)=>doc.setTextColor(...rgb(h));
-  const B=(s:number)=>{doc.setFont('helvetica','bold');doc.setFontSize(s);};
-  const N=(s:number)=>{doc.setFont('helvetica','normal');doc.setFontSize(s);};
-  function np(){doc.addPage();sf(DARK);doc.rect(0,0,pw,12,'F');st(SUN);B(10);doc.text('SolarX',lm,8);st(TEXT3);N(7);doc.text(project.name,lm+18,8);doc.text(`${project.systemType.toUpperCase()} · ${project.systemVoltage}V`,pw-rm,8,{align:'right'});y=18;}
-  function cp(n:number){if(y+n>275)np();}
-  function sh(title:string,sub?:string){cp(16);sf(BG2);doc.rect(lm,y,cw,10,'F');ss(SUN);doc.setLineWidth(0.4);doc.line(lm,y,lm,y+10);st(SUN);B(9);doc.text(title,lm+5,y+6.5);if(sub){st(TEXT3);N(7);doc.text(sub,lm+5+doc.getTextWidth(title)+4,y+6.5);}y+=14;}
-  function r2(k:string,v:string,hi=false){cp(8);st(TEXT2);N(8);doc.text(k,lm+3,y+4);st(hi?SUN:TEXT);if(hi)B(8);else N(8);doc.text(v,lm+cw-3,y+4,{align:'right'});ss(BORDER);doc.setLineWidth(0.1);doc.line(lm,y+7,lm+cw,y+7);y+=8;}
-  function sb(x:number,bw:number,label:string,value:string,unit:string,color=TEXT){sf(BG2);ss(BORDER);doc.setLineWidth(0.2);doc.roundedRect(x,y,bw,18,1.5,1.5,'FD');st(TEXT3);N(6);doc.text(label.toUpperCase(),x+4,y+6);st(color);B(11);doc.text(value,x+4,y+13);st(TEXT2);N(7);doc.text(unit,x+4+doc.getTextWidth(value)+1.5,y+13);}
+const PAGE_W = 210;
+const PAGE_H = 297;
+const ML = 14; // margin left
+const MR = 14; // margin right
+const CW = PAGE_W - ML - MR; // content width
 
-  // COVER
-  sf(DARK);doc.rect(0,0,pw,297,'F');
-  const cx=pw/2,cy=65,sr=18;
-  sf(SUN);doc.circle(cx,cy,sr,'F');
-  ss(SUN);doc.setLineWidth(2.5);
-  [[0,1],[0,-1],[1,0],[-1,0],[0.707,0.707],[-0.707,0.707],[0.707,-0.707],[-0.707,-0.707]].forEach(([dx,dy])=>{doc.line(cx+dx*(sr+3),cy+dy*(sr+3),cx+dx*(sr+9),cy+dy*(sr+9));});
-  st(TEXT);B(28);doc.text('SolarX',pw/2,95,{align:'center'});
-  st(SUN);N(11);doc.text('Solar Electrical Install Companion',pw/2,103,{align:'center'});
-  ss(BORDER);doc.setLineWidth(0.3);doc.line(lm+20,110,pw-lm-20,110);
-  sf(BG2);doc.roundedRect(lm+10,116,cw-20,52,2,2,'F');
-  st(SUN);B(13);doc.text(project.name,pw/2,128,{align:'center'});
-  [['System Type',project.systemType.charAt(0).toUpperCase()+project.systemType.slice(1)],['System Voltage',`${project.systemVoltage}V DC`],['Location',locationName],['Date',new Date().toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'})]].forEach(([k,v],i)=>{const iy=137+i*9;st(TEXT2);N(8);doc.text(k,lm+18,iy);st(TEXT);B(8);doc.text(v,pw-lm-18,iy,{align:'right'});if(i<3){ss(BORDER);doc.setLineWidth(0.1);doc.line(lm+14,iy+3,pw-lm-14,iy+3);}});
-  const metrics=[{label:'Daily Load',val:load.dailyKwh.toFixed(2),unit:'kWh/day'},{label:'Solar Array',val:String(panels.numberOfPanels),unit:'panels'},{label:'Battery Bank',val:String(batteries.numberOfBatteries),unit:'units'},{label:'Inverter',val:inverter.inverter.recommendedInverterKva.toFixed(1),unit:'kVA'}];
-  const mbw=(cw-20)/4-3;
-  st(TEXT3);N(7);doc.text('KEY RESULTS',pw/2,180,{align:'center'});
-  metrics.forEach((m,i)=>{const bx=lm+10+i*(mbw+4);sf('#1a1f28');ss(SUN);doc.setLineWidth(0.3);doc.roundedRect(bx,184,mbw,22,1.5,1.5,'FD');st(TEXT3);N(6);doc.text(m.label.toUpperCase(),bx+mbw/2,191,{align:'center'});st(SUN);B(12);doc.text(m.val,bx+mbw/2,198,{align:'center'});st(TEXT2);N(6.5);doc.text(m.unit,bx+mbw/2,203,{align:'center'});});
-  const pbY=roi.yearlyProjection.find(yy=>yy.netPosition>=0)?.year;
-  sf('#1a1f28');ss(GREEN);doc.setLineWidth(0.5);doc.roundedRect(lm+30,214,cw-60,16,2,2,'FD');
-  st(TEXT2);N(8);doc.text('Estimated Payback Period:',lm+34,224);
-  st(GREEN);B(10);doc.text(pbY?`${pbY} Years`:`${roi.paybackYears.toFixed(1)} Years`,pw-lm-34,224,{align:'right'});
-  st(TEXT3);N(7);doc.text('Generated by SolarX · Solar Electrical Install Companion',pw/2,280,{align:'center'});
-  doc.text('For planning purposes only. Consult a licensed electrical engineer before installation.',pw/2,286,{align:'center'});
+function newPage(doc: jsPDF): number {
+  doc.addPage();
+  doc.setFillColor(C.white[0], C.white[1], C.white[2]);
+  doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
+  return 18;
+}
 
-  // PAGE 2 — LOAD
-  np();sh('Load Profile',`${load.items.length} appliances`);
-  sb(lm,cw/4-2,'Daily Energy',load.dailyKwh.toFixed(2),'kWh',SUN);
-  sb(lm+cw/4+1,cw/4-2,'Total Load',load.totalWatts.toFixed(0),'W');
-  sb(lm+cw/2+1,cw/4-2,'Peak Load',load.peakLoad.toFixed(0),'W');
-  sb(lm+3*cw/4+2,cw/4-2,'Surge Load',load.surgeLoad.toFixed(0),'W');
-  y+=24;
-  sf(BG2);doc.rect(lm,y,cw,8,'F');B(7);st(TEXT3);
-  ['Appliance','Watts','Qty','Hrs/Day','kWh/Day'].forEach((h,i)=>{const xs=[lm+3,lm+75,lm+105,lm+130,lm+cw-3];doc.text(h,xs[i],y+5.5,{align:i===4?'right':'left'});});y+=10;
-  load.items.forEach((item,idx)=>{cp(8);if(idx%2===0){sf(BG3);doc.rect(lm,y,cw,7.5,'F');}st(TEXT);N(7.5);doc.text(item.name,lm+3,y+5);st(TEXT2);doc.text(`${item.watts}W`,lm+75,y+5);doc.text(String(item.quantity),lm+105,y+5);doc.text(`${item.hoursPerDay}h`,lm+130,y+5);st(SUN);B(7.5);doc.text(((item.watts*item.quantity*item.hoursPerDay)/1000).toFixed(3),lm+cw-3,y+5,{align:'right'});y+=7.5;});
-  cp(10);sf(BG2);doc.rect(lm,y,cw,9,'F');ss(SUN);doc.setLineWidth(0.3);doc.line(lm,y,lm+cw,y);st(TEXT);B(8);doc.text('TOTAL',lm+3,y+6);st(SUN);doc.text(`${load.dailyKwh.toFixed(2)} kWh/day`,lm+cw-3,y+6,{align:'right'});y+=14;
+function guard(doc: jsPDF, y: number, need = 22): number {
+  return y + need > PAGE_H - 16 ? newPage(doc) : y;
+}
 
-  // PAGE 3 — SYSTEM
-  np();sh('Solar Panel Sizing');
-  [['Required capacity',`${panels.requiredKwp.toFixed(2)} kWp`,true],['Panel wattage',`${project.panelWattage} W`],['Number of panels',String(panels.numberOfPanels),true],['Configuration',`${panels.panelsInSeries}S × ${panels.stringsInParallel}P`],['Total array size',`${panels.totalKwp.toFixed(2)} kWp`],['Est. daily generation',`${panels.dailyGenerationKwh.toFixed(2)} kWh`],['Peak sun hours',`${irradianceData.find(l=>l.id===project.locationId)?.peakSunHours??'-'} hrs`]].forEach(([k,v,h])=>r2(k as string,v as string,!!h));y+=4;
-  sh('Battery Bank Sizing');
-  [['Chemistry',chemistryName],['Required capacity',`${batteries.requiredAh.toFixed(0)} Ah`,true],['Battery size',`${project.batteryAh} Ah @ ${project.systemVoltage}V`],['Configuration',`${batteries.batteriesInSeries}S × ${batteries.batteriesInParallel}P`],['Total batteries',String(batteries.numberOfBatteries),true],['Total capacity',`${batteries.totalCapacityKwh.toFixed(1)} kWh`],['Usable capacity',`${batteries.usableKwh.toFixed(1)} kWh`],['Autonomy',`${project.autonomyDays} day(s)`]].forEach(([k,v,h])=>r2(k as string,v as string,!!h));y+=4;
-  sh('Inverter & Charge Controller');
-  [['Inverter size',`${inverter.inverter.recommendedInverterKva.toFixed(1)} kVA`,true],['Type',inverter.inverter.inverterType],['MPPT rating',`${inverter.mppt.recommendedMpptAmps} A`],['Array Voc',`${inverter.mppt.openCircuitVoltageVoc} V`],['Array Isc',`${inverter.mppt.shortCircuitCurrentIsc.toFixed(1)} A`]].forEach(([k,v,h])=>r2(k as string,v as string,!!h));y+=4;
+// ── Section heading ───────────────────────────────────────────
+function sectionHead(doc: jsPDF, title: string, y: number): number {
+  doc.setFillColor(C.headerBg[0], C.headerBg[1], C.headerBg[2]);
+  doc.rect(ML, y, CW, 8, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(C.white[0], C.white[1], C.white[2]);
+  doc.text(title.toUpperCase(), ML + 4, y + 5.5);
+  return y + 12;
+}
 
-  // PAGE 4 — WIRING & ROI
-  np();sh('Wire Sizing & Protection');
-  sf(BG2);doc.rect(lm,y,cw,8,'F');B(7);st(TEXT3);
-  ['Segment','Current','AWG','mm²','V-Drop','Fuse','Status'].forEach((h,i)=>{const xs=[lm+3,lm+52,lm+72,lm+88,lm+106,lm+124,lm+cw-3];doc.text(h,xs[i],y+5.5,{align:i===6?'right':'left'});});y+=10;
-  wiring.segments.forEach((s,idx)=>{cp(8);if(idx%2===0){sf(BG3);doc.rect(lm,y,cw,7.5,'F');}st(TEXT);N(7.5);doc.text(s.segment.name,lm+3,y+5);st(TEXT2);doc.text(`${s.segment.currentAmps.toFixed(1)}A`,lm+52,y+5);st(SUN);doc.text(`#${s.recommendedAwg}`,lm+72,y+5);st(TEXT2);doc.text(`${s.recommendedMm2}`,lm+88,y+5);doc.text(`${s.voltageDropPercent.toFixed(2)}%`,lm+106,y+5);doc.text(`${s.fuseRating}A`,lm+124,y+5);st(s.withinSpec?GREEN:'#ef4444');B(7);doc.text(s.withinSpec?'OK':'OVER',lm+cw-3,y+5,{align:'right'});y+=7.5;});y+=8;
-  sh('ROI & Financial Analysis');
-  const rs=[{label:'Annual Savings',val:`₱${roi.annualSavingsPhp.toLocaleString('en-PH',{maximumFractionDigits:0})}`,color:GREEN},{label:'Payback Period',val:`${roi.paybackYears.toFixed(1)} yrs`,color:SUN},{label:'25-Year ROI',val:`${roi.roi25Years.toFixed(0)}%`,color:'#3b82f6'},{label:'CO₂ Saved/yr',val:`${(roi.co2SavedKgPerYear/1000).toFixed(1)} t`,color:'#14b8a6'}];
-  const rbw=cw/4-3;
-  rs.forEach((s,i)=>{const bx=lm+i*(rbw+4);sf(BG2);ss(BORDER);doc.setLineWidth(0.2);doc.roundedRect(bx,y,rbw,18,1.5,1.5,'FD');st(TEXT3);N(6);doc.text(s.label.toUpperCase(),bx+rbw/2,y+6,{align:'center'});st(s.color);B(9);doc.text(s.val,bx+rbw/2,y+13.5,{align:'center'});});y+=24;
-  [['Total system cost',`₱${project.totalSystemCostPhp.toLocaleString('en-PH',{maximumFractionDigits:0})}`],['Annual savings',`₱${roi.annualSavingsPhp.toLocaleString('en-PH',{maximumFractionDigits:0})}`],['Payback period',`${roi.paybackYears.toFixed(1)} years`],['25-yr cumulative savings',`₱${roi.yearlyProjection[24]?.cumulativeSavings.toLocaleString('en-PH',{maximumFractionDigits:0})}`],['25-year ROI',`${roi.roi25Years.toFixed(1)}%`],['CO₂ saved per year',`${(roi.co2SavedKgPerYear/1000).toFixed(2)} metric tons`],['Equivalent trees planted',`${Math.round(roi.co2SavedKgPerYear/21)} trees`]].forEach(([k,v])=>r2(k,v));y+=6;
+// ── Key/Value row ─────────────────────────────────────────────
 
-  // PAGE 5 — BOM
-  np();sh('Bill of Materials');
-  sf(BG2);doc.rect(lm,y,cw,8,'F');B(7);st(TEXT3);
-  ['#','Component','Specification','Qty','Unit'].forEach((h,i)=>{const xs=[lm+3,lm+14,lm+65,lm+cw-22,lm+cw-3];doc.text(h,xs[i],y+5.5,{align:i>=3?'right':'left'});});y+=10;
-  const bom=[['01','Solar Panel',`${project.panelWattage}W Monocrystalline PERC`,String(panels.numberOfPanels),'units'],['02','Battery',`${project.batteryAh}Ah ${project.systemVoltage}V ${project.batteryChemistryId.toUpperCase()}`,String(batteries.numberOfBatteries),'units'],['03','Inverter/Charger',`${inverter.inverter.recommendedInverterKva.toFixed(1)}kVA ${project.systemType}`,'1','unit'],['04','MPPT Controller',`${inverter.mppt.recommendedMpptAmps}A ${project.systemVoltage}V`,'1','unit'],['05','Panel Mount','Aluminum rail + L-bracket kit','1','set'],['06','MC4 Connectors','Male + Female pairs',String(panels.numberOfPanels*2),'pairs'],...wiring.segments.map((s,i)=>[`0${7+i}`,`DC Cable — ${s.segment.name}`,`AWG#${s.recommendedAwg} (${s.recommendedMm2}mm²)`,String(s.segment.lengthMeters),'meters']),['-','Circuit Breakers','DC + AC rated per segment','1','set'],['-','Grounding Kit','Earth rod + conductor','1','set'],['-','Surge Protectors (SPD)','DC + AC side','1','set']];
-  bom.forEach((row,idx)=>{cp(8);if(idx%2===0){sf(BG3);doc.rect(lm,y,cw,7.5,'F');}st(TEXT3);N(7);doc.text(row[0],lm+3,y+5);st(TEXT);B(7.5);doc.text(row[1],lm+14,y+5);st(TEXT2);N(7);doc.text(row[2],lm+65,y+5);st(SUN);B(7.5);doc.text(row[3],lm+cw-22,y+5,{align:'right'});st(TEXT3);N(7);doc.text(row[4],lm+cw-3,y+5,{align:'right'});y+=7.5;});
-  y+=10;sh('Installation Notes');
-  [`• All DC wiring must be rated for outdoor/UV exposure (USE-2 or THWN-2).`,`• Install SPD (surge protection) on both DC and AC sides.`,`• Battery bank must be ventilated; keep away from heat sources.`,`• Verify minimum conductor sizes per NEC 690 or local PEC code.`,`• All metal frames, rails and enclosures must be properly earthed.`,`• Commission system with a licensed electrical engineer before energizing.`,`• This report is for planning only and does not replace engineering sign-off.`].forEach(note=>{cp(7);st(TEXT2);N(7.5);doc.text(note,lm+3,y);y+=6.5;});
+// ── Two-column KV grid ────────────────────────────────────────
+function kvGrid(doc: jsPDF, items: [string, string, ([number,number,number])?][], startY: number): number {
+  let y = startY;
+  const half = Math.ceil(items.length / 2);
+  for (let i = 0; i < half; i++) {
+    y = guard(doc, y, 8);
+    const alt = i % 2 === 0;
+    if (alt) { doc.setFillColor(C.rowAlt[0], C.rowAlt[1], C.rowAlt[2]); doc.rect(ML, y, CW, 7, 'F'); }
 
-  // PAGE NUMBERS
-  const total=doc.getNumberOfPages();
-  for(let p=1;p<=total;p++){doc.setPage(p);st(TEXT3);N(7);doc.text(`Page ${p} of ${total}`,pw-rm,290,{align:'right'});if(p>1)doc.text('SolarX Report — Confidential',lm,290);}
+    // Left col
+    const [lLabel, lVal, lColor] = items[i];
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8.5);
+    doc.setTextColor(C.muted[0], C.muted[1], C.muted[2]);
+    doc.text(lLabel, ML + 4, y + 5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...(lColor ?? C.dark));
+    doc.text(lVal, ML + 4 + 44, y + 5);
 
-  doc.save(`SolarX_${project.name.replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.pdf`);
+    // Right col
+    const right = items[i + half];
+    if (right) {
+      const [rLabel, rVal, rColor] = right;
+      const rx = ML + CW / 2 + 4;
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(C.muted[0], C.muted[1], C.muted[2]);
+      doc.text(rLabel, rx, y + 5);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(...(rColor ?? C.dark));
+      doc.text(rVal, rx + 44, y + 5);
+    }
+    y += 7;
+  }
+  return y + 3;
+}
+
+// ── Table ─────────────────────────────────────────────────────
+function table(
+  doc: jsPDF,
+  headers: string[],
+  rows: (string | { text: string; color?: [number,number,number]; bold?: boolean })[][][],
+  colWidths: number[],
+  startY: number
+): number {
+  let y = startY;
+
+  // Header row
+  doc.setFillColor(C.dark[0], C.dark[1], C.dark[2]);
+  doc.rect(ML, y, CW, 8, 'F');
+  let x = ML;
+  headers.forEach((h, i) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(C.light[0], C.light[1], C.light[2]);
+    doc.text(h, x + 2, y + 5.5);
+    x += colWidths[i];
+  });
+  y += 8;
+
+  rows.forEach((row, ri) => {
+    y = guard(doc, y, 8);
+    if (ri % 2 === 0) { doc.setFillColor(C.rowAlt[0], C.rowAlt[1], C.rowAlt[2]); doc.rect(ML, y, CW, 7.5, 'F'); }
+    x = ML;
+    row.forEach((cell, ci) => {
+      const item = Array.isArray(cell) ? cell[0] : cell;
+      const text = typeof item === 'string' ? item : item.text;
+      const color = typeof item === 'string' ? C.dark : (item.color ?? C.dark);
+      const bold = typeof item === 'string' ? false : (item.bold ?? false);
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(...color);
+      doc.text(text, x + 2, y + 5);
+      x += colWidths[ci];
+    });
+    // Bottom border
+    doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+    doc.setLineWidth(0.2);
+    doc.line(ML, y + 7.5, ML + CW, y + 7.5);
+    y += 7.5;
+  });
+
+  return y + 4;
+}
+
+// ── Divider line ──────────────────────────────────────────────
+function divider(doc: jsPDF, y: number): number {
+  doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+  doc.setLineWidth(0.3);
+  doc.line(ML, y, ML + CW, y);
+  return y + 5;
+}
+
+// ── Badge pill ────────────────────────────────────────────────
+function badge(doc: jsPDF, text: string, x: number, y: number, bg: [number,number,number], fg: [number,number,number]) {
+  const w = doc.getTextWidth(text) + 6;
+  doc.setFillColor(...bg);
+  doc.roundedRect(x, y - 4, w, 6, 1.5, 1.5, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.setTextColor(...fg);
+  doc.text(text, x + 3, y + 0.2);
+}
+
+// ── Footer ────────────────────────────────────────────────────
+function addFooters(doc: jsPDF, projectName: string) {
+  const total = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= total; p++) {
+    doc.setPage(p);
+    doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+    doc.setLineWidth(0.3);
+    doc.line(ML, PAGE_H - 12, ML + CW, PAGE_H - 12);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(C.muted[0], C.muted[1], C.muted[2]);
+    doc.text(`SolarX — Solar Electrical Install Companion  ·  ${projectName}`, ML, PAGE_H - 7);
+    doc.text(`Page ${p} of ${total}`, ML + CW, PAGE_H - 7, { align: 'right' });
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// MAIN EXPORT
+// ══════════════════════════════════════════════════════════════
+export function exportPDF(project: ProjectConfig, results: SolarResults) {
+  const { load, panels, batteries, inverter, wiring, roi } = results;
+  if (!load || !panels || !batteries || !inverter || !wiring || !roi) return;
+
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  doc.setFillColor(C.white[0], C.white[1], C.white[2]);
+  doc.rect(0, 0, PAGE_W, PAGE_H, 'F');
+
+  const location = irradianceData.find(l => l.id === project.locationId);
+  const chemistry = batteriesData.find(b => b.id === project.batteryChemistryId);
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+  const refNo = `SX-${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}-${Math.floor(Math.random()*9000)+1000}`;
+
+  let y = 0;
+
+  // ── COVER HEADER ─────────────────────────────────────────────
+  // Top color bar
+  doc.setFillColor(C.headerBg[0], C.headerBg[1], C.headerBg[2]);
+  doc.rect(0, 0, PAGE_W, 38, 'F');
+
+  // Sun logo
+  doc.setFillColor(C.sun[0], C.sun[1], C.sun[2]);
+  doc.circle(ML + 10, 19, 7, 'F');
+  doc.setDrawColor(255, 255, 255);
+  doc.setLineWidth(1.2);
+  [[19,10,19,13],[19,25,19,28],[10,19,13,19],[25,19,28,19]].forEach(([x1,y1,x2,y2]) => doc.line(x1+ML,y1,x2+ML,y2));
+  doc.setLineWidth(0.8);
+  [[12.5,12.5,14.5,14.5],[23.5,23.5,25.5,25.5],[25.5,12.5,23.5,14.5],[14.5,23.5,12.5,25.5]].forEach(([x1,y1,x2,y2]) => doc.line(x1+ML,y1,x2+ML,y2));
+
+  // Brand name
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(22);
+  doc.setTextColor(C.white[0], C.white[1], C.white[2]);
+  doc.text('SolarX', ML + 24, 16);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(180, 195, 220);
+  doc.text('Solar Electrical Install Companion', ML + 24, 23);
+
+  // Doc type badge top right
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(C.sun[0], C.sun[1], C.sun[2]);
+  doc.text('SYSTEM QUOTATION', ML + CW, 14, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(180, 195, 220);
+  doc.text(`Ref: ${refNo}`, ML + CW, 21, { align: 'right' });
+  doc.text(`Date: ${dateStr}`, ML + CW, 27, { align: 'right' });
+
+  y = 46;
+
+  // ── PROJECT INFO BOX ─────────────────────────────────────────
+  doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(ML, y, CW, 28, 2, 2, 'S');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(C.black[0], C.black[1], C.black[2]);
+  doc.text(project.name, ML + 6, y + 9);
+
+  // System type badge
+  const typeColors: Record<string, [[number,number,number],[number,number,number]]> = {
+    offgrid: [C.greenBg, C.green],
+    ongrid:  [C.blueBg,  C.blue],
+    hybrid:  [C.sunBg,   C.sun],
+  };
+  const [tbg, tfg] = typeColors[project.systemType] ?? [C.sunBg, C.sun];
+  badge(doc, project.systemType.toUpperCase(), ML + 6, y + 18, tbg, tfg);
+  badge(doc, `${project.systemVoltage}V SYSTEM`, ML + 6 + doc.getTextWidth(project.systemType.toUpperCase()) + 14, y + 18, C.blueBg, C.blue);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(C.muted[0], C.muted[1], C.muted[2]);
+  doc.text(`Location: ${location?.name || project.locationId}  ·  Peak Sun Hours: ${location?.peakSunHours} hrs/day`, ML + 6, y + 24);
+
+  y += 34;
+
+  // ── SUMMARY STATS CARDS ───────────────────────────────────────
+  const cards = [
+    { label: 'Daily Load',    value: `${load.dailyKwh.toFixed(2)}`, unit: 'kWh/day',  color: C.sun },
+    { label: 'Solar Array',   value: `${panels.numberOfPanels}`,    unit: `panels · ${panels.totalKwp.toFixed(2)} kWp`, color: C.blue },
+    { label: 'Battery Bank',  value: `${batteries.numberOfBatteries}`, unit: `units · ${batteries.totalCapacityKwh.toFixed(1)} kWh`, color: C.green },
+    { label: 'Inverter',      value: `${inverter.inverter.recommendedInverterKva.toFixed(1)}`, unit: 'kVA', color: C.dark },
+  ];
+  const cardW = CW / 4;
+  cards.forEach((card, i) => {
+    const cx = ML + i * cardW;
+    doc.setFillColor(C.rowAlt[0], C.rowAlt[1], C.rowAlt[2]);
+    doc.setDrawColor(C.border[0], C.border[1], C.border[2]);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(cx, y, cardW - 2, 22, 2, 2, 'FD');
+    // Accent top bar
+    doc.setFillColor(...card.color);
+    doc.roundedRect(cx, y, cardW - 2, 2.5, 1, 1, 'F');
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(C.muted[0], C.muted[1], C.muted[2]);
+    doc.text(card.label.toUpperCase(), cx + 4, y + 8);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(...card.color);
+    doc.text(card.value, cx + 4, y + 16);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(C.muted[0], C.muted[1], C.muted[2]);
+    doc.text(card.unit, cx + 4, y + 20.5);
+  });
+  y += 27;
+
+  // ── SOLAR PANELS ─────────────────────────────────────────────
+  y = guard(doc, y, 60);
+  y = sectionHead(doc, '01  Solar Panel System', y);
+  y = kvGrid(doc, [
+    ['Required Capacity', `${panels.requiredKwp.toFixed(2)} kWp`],
+    ['Number of Panels',  `${panels.numberOfPanels} panels`, C.blue],
+    ['Panel Wattage',     `${project.panelWattage} W each`],
+    ['Array Configuration', `${panels.panelsInSeries}S × ${panels.stringsInParallel}P`],
+    ['Total Array Size',  `${panels.totalKwp.toFixed(2)} kWp`],
+    ['Est. Daily Generation', `${panels.dailyGenerationKwh.toFixed(2)} kWh/day`, C.green],
+    ['Peak Sun Hours',    `${location?.peakSunHours} hrs/day`],
+    ['System Loss Factor','20%'],
+  ], y);
+
+  // ── BATTERY BANK ─────────────────────────────────────────────
+  y = guard(doc, y, 60);
+  y = sectionHead(doc, '02  Battery Bank', y);
+  y = kvGrid(doc, [
+    ['Chemistry',         chemistry?.name ?? project.batteryChemistryId],
+    ['Battery Size',      `${project.batteryAh} Ah @ ${project.systemVoltage}V`],
+    ['Configuration',     `${batteries.batteriesInSeries}S × ${batteries.batteriesInParallel}P`],
+    ['Total Units',       `${batteries.numberOfBatteries} batteries`, C.blue],
+    ['Total Capacity',    `${batteries.totalCapacityKwh.toFixed(1)} kWh`],
+    ['Usable Capacity',   `${batteries.usableKwh.toFixed(1)} kWh`, C.green],
+    ['Depth of Discharge',`${(batteriesData.find(b=>b.id===project.batteryChemistryId)?.maxDoD??0.8)*100}%`],
+    ['Autonomy',          `${project.autonomyDays} day(s)`],
+  ], y);
+
+  // ── INVERTER & MPPT ───────────────────────────────────────────
+  y = guard(doc, y, 50);
+  y = sectionHead(doc, '03  Inverter & Charge Controller', y);
+  y = kvGrid(doc, [
+    ['Inverter Rating',   `${inverter.inverter.recommendedInverterKva.toFixed(1)} kVA`, C.blue],
+    ['Inverter Type',     inverter.inverter.inverterType],
+    ['MPPT Rating',       `${inverter.mppt.recommendedMpptAmps} A`],
+    ['Array Open-Circuit Voc', `${inverter.mppt.openCircuitVoltageVoc} V`],
+    ['Array Short-Circuit Isc', `${inverter.mppt.shortCircuitCurrentIsc.toFixed(1)} A`],
+    ['System Voltage',    `${project.systemVoltage} VDC`],
+  ], y);
+
+  // Notes
+  if (inverter.inverter.notes.length > 0) {
+    doc.setFillColor(C.sunBg[0], C.sunBg[1], C.sunBg[2]);
+    doc.setDrawColor(C.sun[0], C.sun[1], C.sun[2]);
+    doc.setLineWidth(0.3);
+    const noteLines = inverter.inverter.notes.concat(inverter.mppt.notes).filter(Boolean);
+    doc.roundedRect(ML, y, CW, noteLines.length * 6 + 4, 1.5, 1.5, 'FD');
+    noteLines.forEach((n, i) => {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(C.sun[0], C.sun[1], C.sun[2]);
+      doc.text(`⚠  ${n}`, ML + 4, y + 7 + i * 6);
+    });
+    y += noteLines.length * 6 + 8;
+  }
+
+  // ── WIRE SIZING TABLE ─────────────────────────────────────────
+  y = guard(doc, y, 60);
+  y = sectionHead(doc, '04  Wire Sizing & Protection', y);
+  y = table(doc,
+    ['Segment', 'Current (A)', 'AWG', 'mm²', 'V-Drop %', 'Fuse (A)', 'Status'],
+    wiring.segments.map(s => [[
+      { text: s.segment.name, color: C.dark, bold: false },
+      { text: `${s.segment.currentAmps.toFixed(1)} A`, color: C.dark },
+      { text: `#${s.recommendedAwg}`, color: C.blue, bold: true },
+      { text: `${s.recommendedMm2}`, color: C.dark },
+      { text: `${s.voltageDropPercent.toFixed(2)}%`, color: s.withinSpec ? C.green : C.red },
+      { text: `${s.fuseRating} A`, color: C.dark },
+      { text: s.withinSpec ? '✓ OK' : '✗ OVER', color: s.withinSpec ? C.green : C.red, bold: true },
+    ]]),
+    [55, 22, 14, 14, 20, 18, 16],
+    y
+  );
+
+  // ── BILL OF MATERIALS ─────────────────────────────────────────
+  y = guard(doc, y, 80);
+  y = sectionHead(doc, '05  Bill of Materials', y);
+
+  const bomRows = [
+    ['01', 'Solar Panel', `${project.panelWattage}W Monocrystalline`, `${panels.numberOfPanels} pcs`],
+    ['02', 'Battery', `${project.batteryAh}Ah ${project.systemVoltage}V ${(chemistry?.id??'').toUpperCase()}`, `${batteries.numberOfBatteries} pcs`],
+    ['03', 'Inverter / Charger', `${inverter.inverter.recommendedInverterKva.toFixed(1)} kVA ${project.systemType} type`, '1 pc'],
+    ['04', 'MPPT Charge Controller', `${inverter.mppt.recommendedMpptAmps}A, ${project.systemVoltage}VDC input`, '1 pc'],
+    ...wiring.segments.map((s, i) => [
+      `0${5+i}`, `DC Cable — ${s.segment.name}`, `AWG #${s.recommendedAwg} (${s.recommendedMm2} mm²)`, `${s.segment.lengthMeters} m`,
+    ]),
+    ['—', 'Panel Mounting Structure', 'Aluminum rail + L-bracket, galvanized', '1 set'],
+    ['—', 'MC4 Connectors', 'UV-resistant, male + female pairs', `${panels.numberOfPanels * 2} pairs`],
+    ['—', 'DC Circuit Breaker', 'For each string, rated to array Isc × 1.25', `${panels.stringsInParallel} pcs`],
+    ['—', 'AC Circuit Breaker', 'Main output protection', '1 pc'],
+    ['—', 'Battery Fuse/BMS', 'Per battery bank sizing', '1 set'],
+  ];
+
+  y = table(doc,
+    ['#', 'Component', 'Specification', 'Qty'],
+    bomRows.map(r => [[
+      { text: r[0], color: C.muted },
+      { text: r[1], color: C.dark, bold: true },
+      { text: r[2], color: C.mid },
+      { text: r[3], color: C.blue, bold: true },
+    ]]),
+    [12, 48, 95, 22],
+    y
+  );
+
+  // ── FINANCIAL & ROI ───────────────────────────────────────────
+  y = guard(doc, y, 80);
+  y = sectionHead(doc, '06  Financial Analysis & ROI', y);
+  y = kvGrid(doc, [
+    ['Total System Cost',  `₱ ${project.totalSystemCostPhp.toLocaleString('en-PH')}`, C.dark],
+    ['Electricity Rate',   `₱ ${project.electricityRatePhp} / kWh`],
+    ['Annual Savings',     `₱ ${roi.annualSavingsPhp.toLocaleString('en-PH',{maximumFractionDigits:0})}`, C.green],
+    ['Payback Period',     `${roi.paybackYears.toFixed(1)} years`, C.sun],
+    ['25-Year ROI',        `${roi.roi25Years.toFixed(0)}%`, C.blue],
+    ['CO₂ Saved / Year',  `${(roi.co2SavedKgPerYear/1000).toFixed(2)} tonnes`],
+  ], y);
+
+  // 10-year projection table
+  y = guard(doc, y, 12);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(C.mid[0], C.mid[1], C.mid[2]);
+  doc.text('10-Year Savings Projection', ML, y + 5);
+  y += 9;
+
+  const paybackYear = roi.yearlyProjection.find(r => r.netPosition >= 0)?.year;
+  y = table(doc,
+    ['Year', 'Cumulative Savings (₱)', 'Net Position (₱)', 'Status'],
+    roi.yearlyProjection.slice(0, 10).map(r => [[
+      { text: `Year ${r.year}`, color: C.dark },
+      { text: `₱ ${r.cumulativeSavings.toLocaleString('en-PH',{maximumFractionDigits:0})}`, color: C.dark },
+      { text: `₱ ${r.netPosition.toLocaleString('en-PH',{maximumFractionDigits:0})}`, color: r.netPosition >= 0 ? C.green : C.red, bold: true },
+      { text: r.year === paybackYear ? '★ BREAKEVEN' : r.netPosition >= 0 ? 'Profitable' : 'Recovery', color: r.year === paybackYear ? C.sun : r.netPosition >= 0 ? C.green : C.muted, bold: r.year === paybackYear },
+    ]]),
+    [20, 65, 65, 30],
+    y
+  );
+
+  // ── TERMS & NOTES ─────────────────────────────────────────────
+  y = guard(doc, y, 40);
+  y = divider(doc, y);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(C.mid[0], C.mid[1], C.mid[2]);
+  doc.text('Notes & Disclaimers', ML, y + 1);
+  y += 7;
+  const notes = [
+    '• All calculations are based on provided load data and standard solar irradiance values.',
+    '• Panel output assumes 20% system losses (wiring, inverter, temperature, soiling).',
+    '• Battery sizing includes selected depth-of-discharge (DoD) and efficiency factor.',
+    '• Wire sizing follows NEC guidelines with voltage drop within 3% for DC, 2% for critical runs.',
+    '• Actual costs may vary. This document is for design guidance purposes only.',
+    `• Designed for: ${location?.name ?? ''} · Generated by SolarX on ${dateStr}`,
+  ];
+  notes.forEach(n => {
+    y = guard(doc, y, 7);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+    doc.setTextColor(C.muted[0], C.muted[1], C.muted[2]);
+    doc.text(n, ML, y);
+    y += 6;
+  });
+
+  // ── FOOTERS ───────────────────────────────────────────────────
+  addFooters(doc, project.name);
+
+  const filename = `${project.name.replace(/\s+/g,'_')}_SolarX_Quotation_${refNo}.pdf`;
+  doc.save(filename);
 }
