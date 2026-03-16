@@ -52,12 +52,12 @@ export default function LoadProfiler() {
       <div className="section-header">
         <div>
           <div className="section-title">Load Profiler</div>
-          <div className="section-sub">Add all appliances to estimate your daily energy consumption</div>
+          <div className="section-sub">Add appliances to estimate daily energy use</div>
         </div>
       </div>
 
       {result && (
-        <div className="grid-4" style={{ marginBottom: 20 }}>
+        <div className="grid-4" style={{ marginBottom: 14 }}>
           <div className="stat-card highlight">
             <div className="stat-label">Daily Energy</div>
             <div className="stat-value">{result.dailyKwh.toFixed(2)}<span className="stat-unit">kWh</span></div>
@@ -78,78 +78,70 @@ export default function LoadProfiler() {
       )}
 
       <div className="grid-2">
-        {/* Appliance picker */}
+        {/* Appliance Picker */}
         <div className="card">
-          <div className="card-header">
-            <div className="card-title"><span className="card-title-dot" />Appliance Library</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-            <input className="form-input" placeholder="Search appliances..." value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1 }} />
-          </div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 12 }}>
+          <div className="card-header"><div className="card-title"><span className="card-title-dot"/>Appliance Library</div></div>
+          <input className="form-input" placeholder="Search appliances..." value={search} onChange={e => setSearch(e.target.value)} style={{ marginBottom: 10 }}/>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
             {CATEGORIES.map(c => (
               <button key={c} className={`btn btn-sm ${catFilter === c ? 'btn-primary' : 'btn-secondary'}`} onClick={() => setCatFilter(c)}>{c}</button>
             ))}
           </div>
-          <div style={{ maxHeight: 320, overflowY: 'auto' }}>
+          <div style={{ maxHeight: 300, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             {filtered.map(a => (
-              <div key={a.id} onClick={() => addAppliance(a)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 10px', borderRadius: 8, cursor: 'pointer', marginBottom: 4, background: 'var(--bg3)', border: '1px solid var(--border)', transition: 'border-color 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.borderColor = 'var(--sun)')}
-                onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
+              <div key={a.id} className="appliance-item" onClick={() => addAppliance(a)}>
                 <div>
                   <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{a.name}</div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>{a.watts}W · {a.defaultHours}h/day</div>
                 </div>
-                <span style={{ fontSize: 18, color: 'var(--sun)', lineHeight: 1 }}>+</span>
+                <span style={{ fontSize: 20, color: 'var(--sun)', lineHeight: 1, paddingLeft: 8 }}>+</span>
               </div>
             ))}
           </div>
-
-          <hr className="divider" />
-          <div className="card-title" style={{ marginBottom: 10 }}><span className="card-title-dot" />Custom Appliance</div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input className="form-input" placeholder="Name" value={customName} onChange={e => setCustomName(e.target.value)} />
-            <input className="form-input" placeholder="Watts" type="number" value={customWatts} onChange={e => setCustomWatts(e.target.value)} style={{ width: 100 }} />
-            <button className="btn btn-secondary" onClick={addCustom}>Add</button>
+          <hr className="divider"/>
+          <div className="card-title" style={{ marginBottom: 10 }}><span className="card-title-dot"/>Custom Appliance</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <input className="form-input" placeholder="Name" value={customName} onChange={e => setCustomName(e.target.value)}/>
+            <input className="form-input" placeholder="Watts" type="number" value={customWatts} onChange={e => setCustomWatts(e.target.value)} style={{ width: 90, flexShrink: 0 }}/>
+            <button className="btn btn-secondary" style={{ flexShrink: 0 }} onClick={addCustom}>Add</button>
           </div>
         </div>
 
-        {/* Load list */}
+        {/* Load List */}
         <div className="card">
           <div className="card-header">
-            <div className="card-title"><span className="card-title-dot" />Your Load List <span style={{ color: 'var(--text3)', fontWeight: 400 }}>({loadItems.length} items)</span></div>
-            {loadItems.length > 0 && <button className="btn btn-sm btn-danger" onClick={() => setLoadItems([])}>Clear All</button>}
+            <div className="card-title"><span className="card-title-dot"/>Load List <span style={{ color: 'var(--text3)', fontWeight: 400 }}>({loadItems.length})</span></div>
+            {loadItems.length > 0 && <button className="btn btn-sm btn-danger" onClick={() => setLoadItems([])}>Clear</button>}
           </div>
           {loadItems.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text3)', fontSize: 13 }}>
-              No appliances added yet.<br />Click items from the library to add them.
+            <div style={{ textAlign: 'center', padding: '36px 0', color: 'var(--text3)', fontSize: 13 }}>
+              Tap appliances from the library to add them.
             </div>
           ) : (
-            <table className="data-table">
-              <thead><tr><th>Appliance</th><th>Qty</th><th>Hrs/Day</th><th>kWh/Day</th><th></th></tr></thead>
-              <tbody>
-                {loadItems.map(item => (
-                  <tr key={item.id}>
-                    <td style={{ color: 'var(--text)' }}>{item.name}<div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>{item.watts}W each</div></td>
-                    <td>
-                      <input type="number" min={1} value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}
-                        style={{ width: 52, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 6, padding: '4px 6px', fontFamily: 'var(--mono)', fontSize: 13, textAlign: 'center' }} />
-                    </td>
-                    <td>
-                      <input type="number" min={0} max={24} step={0.5} value={item.hoursPerDay} onChange={e => updateItem(item.id, 'hoursPerDay', Number(e.target.value))}
-                        style={{ width: 60, background: 'var(--bg3)', border: '1px solid var(--border)', color: 'var(--text)', borderRadius: 6, padding: '4px 6px', fontFamily: 'var(--mono)', fontSize: 13, textAlign: 'center' }} />
-                    </td>
-                    <td style={{ fontFamily: 'var(--mono)', color: 'var(--sun)' }}>{((item.watts * item.quantity * item.hoursPerDay) / 1000).toFixed(3)}</td>
-                    <td><button className="btn btn-sm btn-danger" onClick={() => removeItem(item.id)}>✕</button></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="table-wrap">
+              <table className="data-table">
+                <thead><tr><th>Appliance</th><th>Qty</th><th>Hrs</th><th>kWh</th><th></th></tr></thead>
+                <tbody>
+                  {loadItems.map(item => (
+                    <tr key={item.id}>
+                      <td style={{ color: 'var(--text)' }}>
+                        {item.name}
+                        <div style={{ fontSize: 10, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>{item.watts}W</div>
+                      </td>
+                      <td><input type="number" min={1} value={item.quantity} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))} className="inline-input"/></td>
+                      <td><input type="number" min={0} max={24} step={0.5} value={item.hoursPerDay} onChange={e => updateItem(item.id, 'hoursPerDay', Number(e.target.value))} className="inline-input" style={{ width: 52 }}/></td>
+                      <td style={{ fontFamily: 'var(--mono)', color: 'var(--sun)' }}>{((item.watts * item.quantity * item.hoursPerDay) / 1000).toFixed(2)}</td>
+                      <td><button className="btn btn-sm btn-danger" onClick={() => removeItem(item.id)}>✕</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
           {result && (
             <>
-              <hr className="divider" />
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <hr className="divider"/>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <div style={{ fontSize: 13, color: 'var(--text2)' }}>
                   Total: <span style={{ color: 'var(--sun)', fontFamily: 'var(--mono)', fontWeight: 600 }}>{result.dailyKwh.toFixed(2)} kWh/day</span>
                 </div>
